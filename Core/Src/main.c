@@ -92,6 +92,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   ST7735_Init();
   char matriz[9] = { '_', '_', '_', '_', '_', '_', '_', '_', '_' }; // '0', '0', '0', '0', '0', '0', '0', '0', '0
+  int X[9];
+  int O[9];
   int jogadorRodada = 1;
   int posicaoCursor = 0;
   int placar1 = 0;
@@ -131,6 +133,27 @@ int main(void)
 		}
 
 		if (jogadas >= 5) {
+			for (int i = 0; i < 9; ++i) {
+				if (i % 3 == 0 && X[i] == i) {
+					placar1++;
+					velha = 0;
+					x = 0;
+					y = 0;
+					posicaoCursor = 0;
+					memset(matriz, '_', sizeof(matriz));
+					for (int i = 0; i < 9; i++) {
+						ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
+						if (i == 2 || i == 5) {
+							y+= 25;
+							x = 0;
+						} else {
+						x+= 30;
+						}
+					}
+				}
+			}
+
+			/*
 			if (matriz[4] == 'X') {
 				if ((matriz[3] == matriz[4] && matriz[5] == matriz[4]) ||
 					(matriz[0] == matriz[4] && matriz[8] == matriz[4]) ||
@@ -152,7 +175,7 @@ int main(void)
 						}
 					}
 				}
-			}
+			}*/
 			}
 
 		/*
@@ -180,42 +203,21 @@ int main(void)
 
 
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) {
-			posicaoCursor++;
-			if (posicaoCursor >= 8) {
-				posicaoCursor = 0;
-			}
-			if (matriz[posicaoCursor] != '_') {
-				for (int i = posicaoCursor; i < 9; i++) {
-					if (matriz[i] == '_') {
-						posicaoCursor = i;
-						break;
-					}
-					if (posicaoCursor > 8) {
-						posicaoCursor = 0;
-					}
-
+			do {
+				posicaoCursor++;
+				if (posicaoCursor > 8) {
+					posicaoCursor = 0;
 				}
-			}
+			} while (matriz[posicaoCursor] != '_');
 			HAL_Delay(500);
 
 		} else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) {
-			posicaoCursor--;
-			if (posicaoCursor <= 0) {
-				posicaoCursor = 8;
-			}
-			if (matriz[posicaoCursor] != '_') {
-				for (int i = posicaoCursor; i >= 0; i--) {
-					if (i < 0) {
-						posicaoCursor = 8;
-						i = 8;
-					}
-					if (matriz[i] == '_') {
-						posicaoCursor = i;
-						break;
-					}
-
+			do {
+				posicaoCursor--;
+				if (posicaoCursor < 0) {
+					posicaoCursor = 8;
 				}
-			}
+			} while (matriz[posicaoCursor] != '_');
 			HAL_Delay(500);
 		}
 
@@ -224,9 +226,11 @@ int main(void)
 			if (matriz[posicaoCursor] == '_') {
 				if (jogadorRodada == 1) {
 					matriz[posicaoCursor] = 'X';
+					X[posicaoCursor] = posicaoCursor;
 					jogadorRodada = 2;
 				} else {
 					matriz[posicaoCursor] = 'O';
+					O[posicaoCursor] = posicaoCursor;
 					jogadorRodada = 1;
 				}
 			}
