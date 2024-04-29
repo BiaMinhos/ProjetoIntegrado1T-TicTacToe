@@ -92,7 +92,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   ST7735_Init();
   char matriz[9] = { '_', '_', '_', '_', '_', '_', '_', '_', '_' }; // '0', '0', '0', '0', '0', '0', '0', '0', '0
-  int X[9];
+  int X[9] = { 10, 10, 10, 10, 10, 10, 10, 10, 10 };
   int O[9];
   int jogadorRodada = 1;
   int posicaoCursor = 0;
@@ -131,52 +131,6 @@ int main(void)
 				x+= 30;
 			}
 		}
-
-		if (jogadas >= 5) {
-			for (int i = 0; i < 9; ++i) {
-				if (i % 3 == 0 && X[i] == i) {
-					placar1++;
-					velha = 0;
-					x = 0;
-					y = 0;
-					posicaoCursor = 0;
-					memset(matriz, '_', sizeof(matriz));
-					for (int i = 0; i < 9; i++) {
-						ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
-						if (i == 2 || i == 5) {
-							y+= 25;
-							x = 0;
-						} else {
-						x+= 30;
-						}
-					}
-				}
-			}
-
-			/*
-			if (matriz[4] == 'X') {
-				if ((matriz[3] == matriz[4] && matriz[5] == matriz[4]) ||
-					(matriz[0] == matriz[4] && matriz[8] == matriz[4]) ||
-					(matriz[1] == matriz[4] && matriz[7] == matriz[4]) ||
-					(matriz[2] == matriz[4] && matriz[5] == matriz[4])) {
-					placar1++;
-					velha = 0;
-					x = 0;
-					y = 0;
-					posicaoCursor = 0;
-					memset(matriz, '_', sizeof(matriz));
-					for (int i = 0; i < 9; i++) {
-						ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
-						if (i == 2 || i == 5) {
-							y+= 25;
-							x = 0;
-						} else {
-							x+= 30;
-						}
-					}
-				}
-			}*/
-			}
 
 		/*
 			if (matriz[0] == 'X' && matriz[3] == 'X' && matriz[6] == 'X') {
@@ -235,6 +189,102 @@ int main(void)
 				}
 			}
 			jogadas++;
+			if (jogadas >= 4) {
+				int i = 0;
+				while (i < 9) {
+					if (X[i] == i) {
+						if (i % 3 == 0) {
+							velha++;
+							i += 3;
+							if (matriz[i] != '_') {
+								i++;
+								if (velha == 2) {
+									i = 0;
+								}
+							}
+						} else if (i % 3 == 1) {
+							velha++;
+							i += 3;
+							if (matriz[i] != '_') {
+								i++;
+								if (velha == 2) {
+									i = 0;
+								}
+							}
+						} else if (i % 3 == 2) {
+							velha++;
+							i += 3;
+							if (matriz[i] != '_') {
+								i++;
+								if (velha == 2) {
+									i = 0;
+								}
+							}
+						}
+					}
+					i++;
+				}
+				/*
+				for (int i = 0; i < 9; ++i) {
+					if (X[i] == i) {
+						if (i % 3 == 0) {
+							velha++;
+							i += 3;
+						} else if (i % 3 == 1) {
+							velha++;
+							i += 3;
+						} else if (i % 3 == 2) {
+							velha++;
+							i += 3;
+						}
+					}
+				} */
+				if (velha >= 3) {
+					placar1++;
+					velha = 0;
+					x = 0;
+					y = 0;
+					posicaoCursor = 0;
+					jogadas = 0;
+					memset(matriz, '_', sizeof(matriz));
+					memset(X, 10, sizeof(X));
+					for (int i = 0; i < 9; i++) {
+						ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
+						if (i == 2 || i == 5) {
+							y+= 25;
+							x = 0;
+						} else {
+						x+= 30;
+						}
+					}
+				} else {
+					velha = 0;
+				}
+
+				/*
+				if (matriz[4] == 'X') {
+					if ((matriz[3] == matriz[4] && matriz[5] == matriz[4]) ||
+						(matriz[0] == matriz[4] && matriz[8] == matriz[4]) ||
+						(matriz[1] == matriz[4] && matriz[7] == matriz[4]) ||
+						(matriz[2] == matriz[4] && matriz[5] == matriz[4])) {
+						placar1++;
+						velha = 0;
+						x = 0;
+						y = 0;
+						posicaoCursor = 0;
+						memset(matriz, '_', sizeof(matriz));
+						for (int i = 0; i < 9; i++) {
+							ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
+							if (i == 2 || i == 5) {
+								y+= 25;
+								x = 0;
+							} else {
+								x+= 30;
+							}
+						}
+					}
+				}*/
+			}
 			/*
 			for (int i = 0; i < 9; ++i) {
 				if (matriz[i] == 'X' && i % 3 == 0) {
