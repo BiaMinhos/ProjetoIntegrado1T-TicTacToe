@@ -82,18 +82,24 @@ void atualizarCursor(int direcao, int* posicaoCursor, char matriz[9], int* x, in
     } else if (cursor < 0) {
       cursor = 8;
     }
+
+	if (direcao > 0) {
+	  	  if (cursor == 3 || cursor == 6 || cursor == 0) {
+	  		  *y += (cursor == 0) ? -50 : 25; // ternary operator
+	  		  *x = 0;
+	  	  } else {
+	  		  *x = (cursor % 3) * 30;
+	  	  }
+	    } else {
+	  	  if (cursor == 2 || cursor == 5 || cursor == 8) {
+	  		  *y += (cursor == 8) ? 50 : -25;
+	  		  *x = 60;
+	  	  } else {
+	  		  *x = (cursor % 3) * 30;
+	  	  }
+	}
   } while (matriz[cursor] != '_');
   *posicaoCursor = cursor;
-  if (cursor == 3 || cursor == 6) {
-    *y += 25;
-    *x = 0;
-  } else {
-    if (cursor >= 4) {
-      *x = (cursor % 3) * 30;
-    } else {
-      *x = cursor * 30;
-    }
-  }
   mostrarMatriz(matriz, true);
   HAL_Delay(500);
 }
@@ -137,11 +143,12 @@ int main(void)
   int posicaoCursor = 0;
   int placar1 = 0;
   int placar2 = 0;
-  int jogadas = 0;
+  int jogadas = 1;
   int x = 0;
   int y = 0;
+  uint32_t last_time = 0;
+  bool mostraLetra = false;
   ST7735_FillScreen(BLACK);
-  ST7735_WriteCharE(100, 50, posicaoCursor + '0', Font_16x26, WHITE, BLACK);
   ST7735_WriteCharE(120, 20, 'x', Font_16x26, WHITE, BLACK);
   mostrarMatriz(matriz, true);
   /* USER CODE END 2 */
@@ -149,31 +156,40 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-    ST7735_WriteCharE(x, y, jogadorRodada == 1 ? 'X' : 'O', Font_16x26, WHITE, BLACK);
-    HAL_Delay(100);
-    ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
-    HAL_Delay(100);
 
-    ST7735_WriteCharE(100, 50, posicaoCursor + '0', Font_16x26, WHITE, BLACK);
+	  if(HAL_GetTick() - last_time > 2000) {
+		  last_time = HAL_GetTick();
+		  ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
+	  } else if (HAL_GetTick() - last_time > 1000 || !mostraLetra) {
+		  ST7735_WriteCharE(x, y, jogadorRodada == 1 ? 'X' : 'O', Font_16x26, YELLOW, BLACK);
+		  mostraLetra = true;
+	  }
+
+
     ST7735_WriteCharE(100, 20, placar1 + '0', Font_16x26, WHITE, BLACK);
     ST7735_WriteCharE(140, 20, placar2 + '0', Font_16x26, WHITE, BLACK);
     mostrarMatriz(matriz, false);
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) {
       atualizarCursor(1, &posicaoCursor, matriz, &x, &y);
+      mostraLetra = false;
     } else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) {
       atualizarCursor(-1, &posicaoCursor, matriz, &x, &y);
+      mostraLetra = false;
     }
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10) == 0) {
       if (matriz[posicaoCursor] == '_') {
         if (jogadorRodada == 1) {
           matriz[posicaoCursor] = 'X';
-					jogadorRodada = 2;
-				} else {
-					matriz[posicaoCursor] = 'O';
-					jogadorRodada = 1;
-				}
+          jogadorRodada = 2;
+		} else {
+			matriz[posicaoCursor] = 'O';
+			jogadorRodada = 1;
+		}
+        if (jogadas < 9) {
+        	atualizarCursor(1, &posicaoCursor, matriz, &x, &y);
+        }
         jogadas++;
       }
 
@@ -204,18 +220,38 @@ int main(void)
         }
 
         if (vencedor) {
-          vencedor == 1 ? placar1++ : placar2++;
-          memset(matriz, '_', sizeof(matriz));
-          mostrarMatriz(matriz, true);
-          jogadorRodada = jogadorRodada == 1 ? 2 : 1;
-          posicaoCursor = 0;
-          jogadas = 0;
-        } else if (!vencedor && jogadas >= 9) {
-          memset(matriz, '_', sizeof(matriz));
-          mostrarMatriz(matriz, true);
-          jogadorRodada = jogadorRodada == 1 ? 2 : 1;
-          posicaoCursor = 0;
-          jogadas = 0;
+        	(vencedor == 1) ? placar1++ : placar2++;
+        	if (placar1 == 2 || placar2 == 2) {
+        		for (int i = GPIO_PIN_3; i < GPIO_PIN_7; i = i << 1) {
+        			HAL_GPIO_WritePin(GPIOB, i, 1);
+        			HAL_Delay(75);
+        			HAL_GPIO_WritePin(GPIOB, i, 0);
+        			HAL_Delay(75);
+        		}
+        		for (int i = 0; i < 3; ++i) {
+        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 1);
+        			HAL_Delay(500);
+        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 0);
+        			HAL_Delay(500);
+        		}
+        		placar1 = 0;
+        		placar2 = 0;
+        	}
+            memset(matriz, '_', sizeof(matriz));
+            mostrarMatriz(matriz, true);
+            jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
+            posicaoCursor = 0;
+            jogadas = 1;
+            x = 0;
+            y = 0;
+        } else if (!vencedor && jogadas > 9) {
+            memset(matriz, '_', sizeof(matriz));
+            mostrarMatriz(matriz, true);
+            jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
+            posicaoCursor = 0;
+            jogadas = 1;
+            x = 0;
+            y = 0;
         }
       }
       HAL_Delay(500);
