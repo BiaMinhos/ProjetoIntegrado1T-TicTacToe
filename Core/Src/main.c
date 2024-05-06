@@ -57,12 +57,20 @@ static void MX_SPI1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void mostrarMatriz(char matriz[9], bool vazios) {
+void mostrarMatriz(char matriz[9], bool vazios, uint16_t xColor, uint16_t oColor) {
   int x = 0;
   int y = 0;
+  uint16_t color;
   for (int i = 0; i < 9; ++i) {
+	  if (matriz[i] == '_') {
+		  color = WHITE;
+	  } else if (matriz[i] == 'X'){
+		  color = xColor;
+	  } else {
+		  color = oColor;
+	  }
     if (vazios || matriz[i] != '_') {
-      ST7735_WriteCharE(x, y, matriz[i], Font_16x26, WHITE, BLACK);
+      ST7735_WriteCharE(x, y, matriz[i], Font_16x26, color, BLACK);
     }
     if (i == 2 || i == 5) {
       y += 25;
@@ -73,7 +81,7 @@ void mostrarMatriz(char matriz[9], bool vazios) {
   }
 }
 
-void atualizarCursor(int direcao, int* posicaoCursor, char matriz[9], int* x, int* y) {
+void atualizarCursor(int direcao, int* posicaoCursor, char matriz[9], int* x, int* y, uint16_t xColor, uint16_t oColor) {
   int cursor = *posicaoCursor;
   do {
     cursor += direcao;
@@ -100,10 +108,36 @@ void atualizarCursor(int direcao, int* posicaoCursor, char matriz[9], int* x, in
 	}
   } while (matriz[cursor] != '_');
   *posicaoCursor = cursor;
-  mostrarMatriz(matriz, true);
-  HAL_Delay(500);
+  mostrarMatriz(matriz, true, xColor, oColor);
+  HAL_Delay(250);
 }
 
+void selecionarCor(char letra, uint16_t* color) {
+	int selec = 0;
+	uint16_t colors[] = { WHITE, BLUE, RED, GREEN, CYAN, MAGENTA, YELLOW };
+	ST7735_FillScreen(BLACK);
+	ST7735_WriteString(0, 0, "Selecione uma cor para", Font_11x18, WHITE, BLACK);
+	while (1) {
+		ST7735_WriteCharE(100, 20, letra, Font_11x18, colors[selec], BLACK);
+		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) {
+			if (selec < 6) {
+				selec++;
+			}
+			HAL_Delay(250);
+		} else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) {
+			if (selec > 0) {
+				selec--;
+			}
+			HAL_Delay(250);
+		}
+
+		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10) == 0) {
+			*color = colors[selec];
+			break;
+		}
+	  }
+	  selec = 0;
+}
 /* USER CODE END 0 */
 
 /**
@@ -147,35 +181,35 @@ int main(void)
   int x = 0;
   int y = 0;
   uint32_t last_time = 0;
-  bool mostraLetra = false;
+  uint16_t xColor = WHITE;
+  uint16_t oColor = WHITE;
+
+  selecionarCor('X', &xColor);
+  selecionarCor('O', &oColor);
+
   ST7735_FillScreen(BLACK);
   ST7735_WriteCharE(120, 20, 'x', Font_16x26, WHITE, BLACK);
-  mostrarMatriz(matriz, true);
+  mostrarMatriz(matriz, true, xColor, oColor);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-
-	  if(HAL_GetTick() - last_time > 2000) {
+	  if (HAL_GetTick() - last_time > 1000) {
 		  last_time = HAL_GetTick();
-		  ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
-	  } else if (HAL_GetTick() - last_time > 1000 || !mostraLetra) {
-		  ST7735_WriteCharE(x, y, jogadorRodada == 1 ? 'X' : 'O', Font_16x26, YELLOW, BLACK);
-		  mostraLetra = true;
-	  }
-
+		  ST7735_WriteCharE(x, y, jogadorRodada == 1 ? 'X' : 'O', Font_16x26, jogadorRodada == 1 ? xColor : oColor, BLACK);
+	   } else if (HAL_GetTick() - last_time > 500) {
+		ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
+	   }
 
     ST7735_WriteCharE(100, 20, placar1 + '0', Font_16x26, WHITE, BLACK);
     ST7735_WriteCharE(140, 20, placar2 + '0', Font_16x26, WHITE, BLACK);
-    mostrarMatriz(matriz, false);
+    mostrarMatriz(matriz, false, xColor, oColor);
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) {
-      atualizarCursor(1, &posicaoCursor, matriz, &x, &y);
-      mostraLetra = false;
+      atualizarCursor(1, &posicaoCursor, matriz, &x, &y, xColor, oColor);
     } else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) {
-      atualizarCursor(-1, &posicaoCursor, matriz, &x, &y);
-      mostraLetra = false;
+      atualizarCursor(-1, &posicaoCursor, matriz, &x, &y, xColor, oColor);
     }
 
     if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10) == 0) {
@@ -188,13 +222,13 @@ int main(void)
 			jogadorRodada = 1;
 		}
         if (jogadas < 9) {
-        	atualizarCursor(1, &posicaoCursor, matriz, &x, &y);
+        	atualizarCursor(1, &posicaoCursor, matriz, &x, &y, xColor, oColor);
         }
         jogadas++;
       }
 
       if (jogadas >= 5) {
-        mostrarMatriz(matriz, false);
+        mostrarMatriz(matriz, false, xColor, oColor);
         HAL_Delay(1000);
         int vencedor = 0;
         for (int i = 0; i < 9; i += 3) {
@@ -230,15 +264,17 @@ int main(void)
         		}
         		for (int i = 0; i < 3; ++i) {
         			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 1);
+        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 0);
         			HAL_Delay(500);
         			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 0);
+        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 1);
         			HAL_Delay(500);
         		}
         		placar1 = 0;
         		placar2 = 0;
         	}
             memset(matriz, '_', sizeof(matriz));
-            mostrarMatriz(matriz, true);
+            mostrarMatriz(matriz, true, xColor, oColor);
             jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
             posicaoCursor = 0;
             jogadas = 1;
@@ -246,7 +282,7 @@ int main(void)
             y = 0;
         } else if (!vencedor && jogadas > 9) {
             memset(matriz, '_', sizeof(matriz));
-            mostrarMatriz(matriz, true);
+            mostrarMatriz(matriz, true, xColor, oColor);
             jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
             posicaoCursor = 0;
             jogadas = 1;
@@ -254,7 +290,6 @@ int main(void)
             y = 0;
         }
       }
-      HAL_Delay(500);
     }
   /* USER CODE END WHILE */
 
@@ -358,6 +393,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOB, ST7735_DC_Pin|ST7735_RES_Pin|GPIO_PIN_3|GPIO_PIN_4
                           |GPIO_PIN_5|GPIO_PIN_6, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, GPIO_PIN_SET);
+
   /*Configure GPIO pin : ST7735_CS_Pin */
   GPIO_InitStruct.Pin = ST7735_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -366,9 +404,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(ST7735_CS_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ST7735_DC_Pin ST7735_RES_Pin PB3 PB4
-                           PB5 PB6 */
+                           PB5 PB6 PB9 */
   GPIO_InitStruct.Pin = ST7735_DC_Pin|ST7735_RES_Pin|GPIO_PIN_3|GPIO_PIN_4
-                          |GPIO_PIN_5|GPIO_PIN_6;
+                          |GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_9;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
