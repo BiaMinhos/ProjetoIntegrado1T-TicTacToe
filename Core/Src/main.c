@@ -113,30 +113,38 @@ void atualizarCursor(int direcao, int* posicaoCursor, char matriz[9], int* x, in
 }
 
 void selecionarCor(char letra, uint16_t* color) {
-	int selec = 0;
+	int select = 0;
 	uint16_t colors[] = { WHITE, BLUE, RED, GREEN, CYAN, MAGENTA, YELLOW };
 	ST7735_FillScreen(BLACK);
 	ST7735_WriteString(0, 0, "Selecione uma cor para", Font_11x18, WHITE, BLACK);
 	while (1) {
-		ST7735_WriteCharE(100, 20, letra, Font_11x18, colors[selec], BLACK);
-		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) {
-			if (selec < 6) {
-				selec++;
-			}
-			HAL_Delay(250);
-		} else if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) {
-			if (selec > 0) {
-				selec--;
-			}
-			HAL_Delay(250);
+		ST7735_WriteCharE(100, 20, letra, Font_11x18, colors[select], BLACK);
+
+		select += (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_12) == 0) ? 1 : 0;
+		select -= (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_9) == 0) ? 1 : 0;
+		if (select > 6) {
+			select = 0;
+		} else if (select < 0) {
+			select = 6;
 		}
 
 		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_10) == 0) {
-			*color = colors[selec];
+			*color = colors[select];
 			break;
 		}
-	  }
-	  selec = 0;
+		HAL_Delay(200);
+	}
+	select = 0;
+}
+
+void resetJogo(char matriz[9], int* jogadorRodada, int* posicaoCursor, int* jogadas, int* x, int* y, uint16_t xColor, uint16_t oColor) {
+    memset(matriz, '_', 9);
+    mostrarMatriz(matriz, true, xColor, oColor);
+    *jogadorRodada = (*jogadorRodada == 1) ? 1 : 2;
+    *posicaoCursor = 0;
+    *jogadas = 1;
+    *x = 0;
+    *y = 0;
 }
 /* USER CODE END 0 */
 
@@ -170,8 +178,6 @@ int main(void)
   MX_GPIO_Init();
   MX_SPI1_Init();
   /* USER CODE BEGIN 2 */
-  ST7735_Init();
-
   char matriz[9] = { '_', '_', '_', '_', '_', '_', '_', '_', '_' };
   int jogadorRodada = 1;
   int posicaoCursor = 0;
@@ -180,13 +186,13 @@ int main(void)
   int jogadas = 1;
   int x = 0;
   int y = 0;
-  uint32_t last_time = 0;
+  uint32_t piscaCursor = 0;
   uint16_t xColor = WHITE;
   uint16_t oColor = WHITE;
 
+  ST7735_Init();
   selecionarCor('X', &xColor);
   selecionarCor('O', &oColor);
-
   ST7735_FillScreen(BLACK);
   ST7735_WriteCharE(120, 20, 'x', Font_16x26, WHITE, BLACK);
   mostrarMatriz(matriz, true, xColor, oColor);
@@ -195,12 +201,12 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1) {
-	  if (HAL_GetTick() - last_time > 1000) {
-		  last_time = HAL_GetTick();
+	  if (HAL_GetTick() - piscaCursor > 1000) {
+		  piscaCursor = HAL_GetTick();
 		  ST7735_WriteCharE(x, y, jogadorRodada == 1 ? 'X' : 'O', Font_16x26, jogadorRodada == 1 ? xColor : oColor, BLACK);
-	   } else if (HAL_GetTick() - last_time > 500) {
-		ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
-	   }
+	  } else if (HAL_GetTick() - piscaCursor > 500) {
+		  ST7735_WriteCharE(x, y, ' ', Font_16x26, WHITE, BLACK);
+	  }
 
     ST7735_WriteCharE(100, 20, placar1 + '0', Font_16x26, WHITE, BLACK);
     ST7735_WriteCharE(140, 20, placar2 + '0', Font_16x26, WHITE, BLACK);
@@ -253,41 +259,29 @@ int main(void)
           vencedor = matriz[2] == 'X' ? 1 : 2;
         }
 
-        if (vencedor) {
-        	(vencedor == 1) ? placar1++ : placar2++;
-        	if (placar1 == 2 || placar2 == 2) {
-        		for (int i = GPIO_PIN_3; i < GPIO_PIN_7; i = i << 1) {
-        			HAL_GPIO_WritePin(GPIOB, i, 1);
-        			HAL_Delay(75);
-        			HAL_GPIO_WritePin(GPIOB, i, 0);
-        			HAL_Delay(75);
+        if (vencedor || (!vencedor && jogadas > 9)) {
+        	if (vencedor) {
+        		(vencedor == 1) ? placar1++ : placar2++;
+        		if (placar1 == 2 || placar2 == 2) {
+        			for (int i = GPIO_PIN_3; i < GPIO_PIN_7; i = i << 1) {
+        				HAL_GPIO_WritePin(GPIOB, i, 1);
+        				HAL_Delay(75);
+        				HAL_GPIO_WritePin(GPIOB, i, 0);
+        				HAL_Delay(75);
+        			}
+        			for (int i = 0; i < 3; ++i) {
+        				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 1);
+        				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 0);
+        				HAL_Delay(500);
+        				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 0);
+        				HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 1);
+        				HAL_Delay(500);
+        			}
+        			placar1 = 0;
+        			placar2 = 0;
         		}
-        		for (int i = 0; i < 3; ++i) {
-        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 1);
-        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 0);
-        			HAL_Delay(500);
-        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_3 + GPIO_PIN_4 + GPIO_PIN_5 + GPIO_PIN_6, 0);
-        			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_9, 1);
-        			HAL_Delay(500);
-        		}
-        		placar1 = 0;
-        		placar2 = 0;
         	}
-            memset(matriz, '_', sizeof(matriz));
-            mostrarMatriz(matriz, true, xColor, oColor);
-            jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
-            posicaoCursor = 0;
-            jogadas = 1;
-            x = 0;
-            y = 0;
-        } else if (!vencedor && jogadas > 9) {
-            memset(matriz, '_', sizeof(matriz));
-            mostrarMatriz(matriz, true, xColor, oColor);
-            jogadorRodada = (jogadorRodada == 1) ? 1 : 2;
-            posicaoCursor = 0;
-            jogadas = 1;
-            x = 0;
-            y = 0;
+        	resetJogo(matriz, &jogadorRodada, &posicaoCursor, &jogadas, &x, &y, xColor, oColor);
         }
       }
     }
